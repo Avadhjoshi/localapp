@@ -7,8 +7,9 @@ import 'package:localapp/DirectoryListScreen.dart';
 import 'package:http/http.dart' as http;
 import 'constants/Config.dart';
 import 'dart:convert';
-import 'package:platform_device_id/platform_device_id.dart';
 
+import 'constants/DeviceHelper.dart';
+import 'constants/DeviceHelper.dart';
 import 'models/Category.dart';
 import 'models/LocalAd.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -78,7 +79,7 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
     showLoaderDialog(context);
 
     var url = Config.get_area_home;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
     http.Response response = await http.post(Uri.parse(url), body: {
       'area_id':'${widget.AreaId}',
@@ -153,7 +154,7 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
   ad_response(ad_id) async {
 
     var url = Config.insert_ad_response;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
     print('deviceId${deviceId}');
     print('ad_id${ad_id}');
     http.Response response = await http.post(Uri.parse(url)
@@ -658,7 +659,7 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
     showLoaderDialog(context);
 
     var url = Config.get_search_area_home;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
     http.Response response = await http.post(Uri.parse(url), body: {
       'area_id':'${widget.AreaId}',

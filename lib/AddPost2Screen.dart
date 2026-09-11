@@ -22,8 +22,10 @@ import 'dart:convert';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:flutter/gestures.dart'; // Import gesture recognizer
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:platform_device_id/platform_device_id.dart';
 
+import 'constants/DeviceHelper.dart';import 'dart:io';
+
+import 'constants/DeviceHelper.dart';
 import 'constants/prefs_file.dart';
 import 'models/BlogList.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -318,7 +320,7 @@ class _AddPost2ScreenState extends ConsumerState<AddPost2Screen> {
       blog_data = [];
       blog_string = [];
 
-      String? deviceId = await PlatformDeviceId.getDeviceId;
+      String deviceId = await DeviceHelper.getDeviceId();
 
       var url = Config.get_my_post;
       blog_page = 0;
@@ -356,30 +358,24 @@ class _AddPost2ScreenState extends ConsumerState<AddPost2Screen> {
     } catch (e) {
       print('Request failed with error: $e');
       // Show retry popup
-      Navigator.of(context).pop();
+      //Navigator.of(context).pop();
 
       //RetryPopup();
     }
   }
 
   get_name() async {
-    String recent_name = await prefs.getpost_name();
+    String recent_name = await prefs.isuser_name();
     String recent_selected = await prefs.getpost_desc();
     String recent_contact = await prefs.getpost_contact();
     setState(() async {
-      var user = ref.read(profileProvider);
-      if (user != null) {
-        name_con.text = user.name ?? "unknown";
-      } else {
-        ref.read(profileProvider.notifier).getUser(context);
-        var _user = ref.read(profileProvider);
-        name_con.text = user?.name ?? "unknown";
-      }
 
-      // if(recent_name!='')
-      // {
-      //   name_con.text='${recent_name}';
-      // }
+
+       if(recent_name!='')
+       {
+         name_con.text='${recent_name}';
+
+       }
       if (recent_selected != '') {
         selectedOption = recent_selected;
       }
@@ -444,7 +440,7 @@ class _AddPost2ScreenState extends ConsumerState<AddPost2Screen> {
 
     //
     showLoaderDialog(context);
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
 
     await Future.delayed(Duration(milliseconds: 1000), () {

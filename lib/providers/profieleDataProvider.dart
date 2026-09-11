@@ -13,7 +13,10 @@ import 'package:localapp/component/show%20coustomMesage.dart';
 import 'package:localapp/models/userModel.dart';
 import 'package:localapp/providers/phoneNumberPerovider.dart';
 import 'package:logger/logger.dart';
-import 'package:platform_device_id/platform_device_id.dart';
+
+import 'dart:io';
+
+import '../constants/DeviceHelper.dart';
 
 final profileProvider =
     StateNotifierProvider<ProfileProviderState, User?>((ref) {
@@ -34,7 +37,7 @@ class ProfileProviderState extends StateNotifier<User?> {
   TextEditingController phoneNumController = TextEditingController();
 
   Future<void> getUser(BuildContext context) async {
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
     var resp = await logInApi.getUser(deviceId ?? "");
 
     Logger().w(jsonDecode(resp.body));
@@ -70,7 +73,7 @@ class ProfileProviderState extends StateNotifier<User?> {
     String? PN = ref.read(phoneNumberProvider);
     if (PN == null || PN.isEmpty) {
       WidgetsBinding.instance?.addPostFrameCallback((timeStamp) async {
-        await ref.read(phoneNumberProvider.notifier).getSimNumber(context);
+       // await ref.read(phoneNumberProvider.notifier).getSimNumber(context);
         PN = ref.read(phoneNumberProvider);
       });
     }
@@ -104,7 +107,7 @@ class ProfileProviderState extends StateNotifier<User?> {
       return;
     }
 
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
     var resp = await logInApi.updateProfile(
         name: nameController.text.trim(),
         mobileNumber1: phoneNumController.text.trim(),

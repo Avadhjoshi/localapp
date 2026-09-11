@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
@@ -23,14 +24,16 @@ import 'package:localapp/providers/notificationPermitionProvider.dart';
 import 'package:localapp/providers/phoneNumberPerovider.dart';
 import 'package:localapp/providers/profieleDataProvider.dart';
 import 'package:logger/logger.dart';
-import 'package:platform_device_id/platform_device_id.dart';
-import 'package:shimmer/shimmer.dart';
+
+import 'constants/DeviceHelper.dart';import 'package:shimmer/shimmer.dart';
 
 import 'CityScreen.dart';
 import 'HomeScreen.dart';
 import 'JobScreen.dart';
 import 'PostScreen.dart';
 import 'constants/Config.dart';
+import 'constants/DeviceHelper.dart';
+import 'constants/prefs_file.dart';
 
 class CategoryScreen extends ConsumerStatefulWidget {
   ReceivedAction? initialAction;
@@ -43,12 +46,67 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen>
     with WidgetsBindingObserver {
   int selectedIdx = -1;
   bool showShimmer = true; // Track whether to show shimmer or data
-  final Duration shimmerDuration = const Duration(seconds: 2);
+  final Duration shimmerDuration = const Duration(milliseconds: 800);
   String status = '';
   String bg_image = '';
 
   List user_category_data = [];
   List<User_Category_list> user_category_string = [];
+
+  String? _deviceId;
+
+  bool _loaderShown = false;
+  bool _isLoadingApi = false;
+  void _showLoaderSafe() {
+    if (_loaderShown) return;
+    _loaderShown = true;
+    showLoaderDialog(context);
+  }
+
+  void _hideLoaderSafe() {
+    if (!_loaderShown) return;
+    _loaderShown = false;
+    if (Navigator.canPop(context)) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  updatelatlong() async{
+
+    var url = Config.update_Profile;
+    String deviceId = await DeviceHelper.getDeviceId();
+    Position location = await Geolocator.getCurrentPosition();
+
+    http.Response response = await http.post(Uri.parse(url), body: {
+      'PostById':'${deviceId}',
+      "Latitude":location.latitude.toString(),
+      "Longitude":location.longitude.toString(),
+
+
+
+    });
+
+
+    Map<String, dynamic> data = json.decode(response.body );
+    bool status = data["success"];
+    print('latlng${status}');
+
+
+    if (status == true) {
+    }
+    else{
+
+    }
+
+
+
+  }
+
+  Future<void> _ensureDeviceId() async {
+    if (_deviceId != null) return;
+    _deviceId = await DeviceHelper.getDeviceId();
+  }
+
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
@@ -66,108 +124,75 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen>
     super.dispose();
   }
 
-  void selectItem(int index) {
-    setState(() {
-      if (index == 0) {
-        Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => HomeScreen(
-                    user_category_string[index].whatsappText,
-                    user_category_string[index].whatsappNumber,
-                    user_category_string[index].categoryId,
-                    user_category_string[index].privacyType)));
-      }
-      if (index == 1) {
-        Navigator.push(
-            context, MaterialPageRoute(builder: (context) => CategoryScreen()));
-      }
-      if (index == 2) {
-        Navigator.push(
-            context, MaterialPageRoute(builder: (context) => CategoryScreen()));
-      }
-      if (index == selectedIdx) {
-        // If the same item is tapped again, clear the selection
-        selectedIdx = -1;
-      } else {
-        selectedIdx = index;
-      }
-    });
-  }
 
   int _currentIndexBottom = 0;
-  getUser() async{
-    //showLoaderDialog(context);
+  Future<void> getUser() async {
 
-    var url = Config.get_user;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+      var url = Config.get_user;
+      String? deviceId = _deviceId ?? await DeviceHelper.getDeviceId();
+      _deviceId = deviceId;
 
-    http.Response response = await http.post(Uri.parse(url), body: {
-      'PostById':'${deviceId}',
+      http.Response response = await http.post(
+        Uri.parse(url),
+        body: {'PostById': '$deviceId'},
+      );
 
-    });
+      if (kDebugMode) {
+        logger.i("$url\n${response.statusCode}");
+      }
+    print('response.statusCode${response.statusCode}');
+      if (response.statusCode != 200) {
+        return;
+      }
 
-    logger.i("$url\n${response.statusCode} \n${jsonDecode(response.body)}");
+      Map<String, dynamic> data = json.decode(response.body);
+      status = data["success"];
 
-    Map<String, dynamic> data = json.decode(response.body );
-    status = data["success"];
-    print('datadata${data}');
+      if (status == "0") {
+        print('mobile${data['data']['Name']}');
+        if(data['data']['Name']!= null){
+          Prefs prefs = new Prefs();
 
-   // Navigator.of(context).pop();
+          await prefs.setuser_name(data['data']['Name']);
 
-    if (status == "0") {
-      print("name${data['data']['Name']}");
-      print("name${data['data']['MobileNumber1']}");
-      if(data['data']['Name']==null || data['data']['MobileNumber1']==null)
-        {
+        }
+        if (data['data']['Name'] == null ||
+            data['data']['MobileNumber1'] == null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             showDialog(
               context: context,
               barrierDismissible: false,
-              builder: (context) => CustomDialog(),
+              builder: (_) => CustomDialog(),
             );
           });
-        }
-      else if(data['data']['Status']=='Rejected')
-        {
+        } else if (data['data']['Status'] == 'Rejected') {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             showDialog(
               context: context,
               barrierDismissible: false,
-              builder: (context) => showRejectedDialog(context,'${data['customer_care']}'),
+              builder: (_) =>
+                  showRejectedDialog(context, '${data['customer_care']}'),
             );
           });
         }
-
-
-      setState(() {
-
-      });
-    }
-    else{
-
-    }
-
-
+      }
 
   }
 
-  myInit() async {
-    await ref
-        .read(notificationPermissionProvider.notifier)
-        .getNotification(context);
-    await ref
-        .read(locationPermmissionProvider.notifier)
-        .getLocationPermmision(context);
-
-    await ref.read(phoneNumberProvider.notifier).requestPermission();
-
-
+  Future<void> myInit() async {
+    await Future.wait([
+      ref.read(notificationPermissionProvider.notifier).getNotification(context),
+      ref.read(locationPermmissionProvider.notifier).getLocationPermmision(context),
+      ref.read(phoneNumberProvider.notifier).requestPermission(),
+    ]);
+    updatelatlong();
     //ref.read(profileProvider.notifier).updateLocation(context);
-  } // Track the current page index
+  }
+  // Track the current page index
 
   @override
   void initState() {
+    super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       if (widget.initialAction != null &&
@@ -181,11 +206,15 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen>
             navigatorKey.currentContext!,
             MaterialPageRoute(
                 builder: (context) => HomeScreen(
-                      '',
-                      '',
-                      widget.initialAction!.payload!["blog_id"] ?? "",
-                      CategoryPrivacyType.public,
-                    )),
+                  '',
+                  '',
+                  widget.initialAction!.payload!["blog_id"] ?? "",
+                  CategoryPrivacyType.public,
+                  "",
+                  widget.initialAction!.payload!["category_label"],
+                  widget.initialAction!.payload!["SubSubCategoryLabel"],
+
+                )),
           );
         } else {
           Navigator.push(
@@ -201,21 +230,33 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen>
         }
       }
     });
-   myInit();
+    _initializeScreen();
+  }
 
-    Timer(shimmerDuration, () {
-      if (mounted) {
-        setState(() {
-          showShimmer = false;
-        });
-      }
-    });
-    Future.delayed(const Duration(milliseconds: 8), () {
-      getUserCategory();
-      getUser();
+  Future<void> _initializeScreen() async {
+    await _ensureDeviceId();
+    // Run permission checks without blocking data loading
+    // (no await here on purpose)
+    myInit();
+    await _loadInitialData();
+  }
 
+  Future<void> _loadInitialData() async {
+    if (!mounted) return;
+    setState(() {
+      showShimmer = true;
     });
-    super.initState();
+
+      await Future.wait([
+        getUser(),
+        getUserCategory(),
+      ]);
+
+
+    if (!mounted) return;
+    setState(() {
+      showShimmer = false;
+    });
   }
 
   showLoaderDialog(BuildContext context) {
@@ -247,38 +288,44 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen>
     );
   }
 
-  getUserCategory() async {
-  //  showLoaderDialog(context);
+  Future<void> getUserCategory() async {
 
-    var url = Config.get_category;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    try {
+      var url = Config.get_category;
+      String? deviceId = _deviceId ?? await DeviceHelper.getDeviceId();
+      _deviceId = deviceId;
 
-    http.Response response =
-        await http.post(Uri.parse(url), body: {'user_id': deviceId});
+      http.Response response =
+      await http.post(Uri.parse(url), body: {'user_id': deviceId});
 
-    Logger().e('error Point ${response.body}');
+      if (kDebugMode) {
+        logger.i("$url\n${response.statusCode}");
+      }
+      print('statusCode${response.statusCode}');
 
-    logger.i("${url} \n${response.statusCode} \n${jsonDecode(response.body)}");
+      if (response.statusCode != 200) {
+       // _hideLoaderSafe();
+        return;
+      }
 
-    Map<String, dynamic> data = json.decode(response.body);
-    status = data["success"];
-    print('datadata${data}');
+      Map<String, dynamic> data = json.decode(response.body);
+      status = data["success"];
 
-    //Navigator.of(context).pop();
+      if (status == "0") {
+        user_category_data = data['data']['category'] as List;
+        user_category_string = user_category_data
+            .map<User_Category_list>(
+                (json) => User_Category_list.fromJson(json))
+            .toList();
 
-    if (status == "0") {
-      user_category_data = data['data']['category'] as List;
-      user_category_string = user_category_data
-          .map<User_Category_list>((json) => User_Category_list.fromJson(json))
-          .toList();
+        setState(() {
+          bg_image = data['data']['bg_image'];
+        });
+      }
+    } catch (e) {
+      debugPrint('getUserCategory error: $e');
+    }
 
-      print("pass");
-
-      setState(() {
-        bg_image = data['data']['bg_image'];
-      });
-      print('bg_image$bg_image');
-    } else {}
   }
 
   @override
@@ -293,7 +340,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen>
           preferredSize: const Size.fromHeight(5.0), // here the desired height
           child: AppBar(
             backgroundColor:
-                Colors.transparent, // Change app bar color to white
+            Colors.transparent, // Change app bar color to white
             automaticallyImplyLeading: false,
           )),
 
@@ -322,13 +369,13 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen>
 
                         const SizedBox(height: 120),
                         for (int i = 0;
-                            i < user_category_string.length;
-                            i++) ...[
+                        i < user_category_string.length;
+                        i++) ...[
                           //card That Showing That Page
                           GestureDetector(
                             onTap: () {
                               logger.e(
-                                  'Nuimber (${user_category_string[i].whatsappNumber})');
+                                  'Nuimber (${user_category_string[i].categoryId})');
 
                               // insertLog(context, deviceId: ref.read(profileProvider)?.deviceId??"", id: user_category_string[i].categoryId, type: InsertLogType.category);
 
@@ -336,19 +383,20 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen>
                                   context,
                                   MaterialPageRoute(
                                       builder: (context) => HomeScreen(
-                                            user_category_string[i]
-                                                .whatsappText,
-                                            user_category_string[i]
-                                                .whatsappNumber,
-                                            user_category_string[i].categoryId,
-                                            user_category_string[i].privacyType,
-                                            subSubCategoryLabel:
-                                                user_category_string[i]
-                                                    .subSubCategoryLabel,
-                                            privacyImage:
-                                                user_category_string[i]
-                                                    .privacyImage,
-                                          )));
+                                        user_category_string[i]
+                                            .whatsappText,
+                                        user_category_string[i]
+                                            .whatsappNumber,
+                                        user_category_string[i].categoryId,
+                                        user_category_string[i].privacyType,
+
+                                        user_category_string[i]
+                                            .privacyImage,
+                                        user_category_string[i]
+                                            .categoryLabel,
+                                        user_category_string[i]
+                                            .subSubCategoryLabel,
+                                      )));
                             },
                             child: Padding(
                               padding: const EdgeInsets.all(10.0),
@@ -356,82 +404,84 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen>
                                 child: Container(
                                   child: showShimmer
                                       ? Shimmer.fromColors(
-                                          baseColor: Colors.grey[300]!,
-                                          highlightColor: Colors.grey[100]!,
-                                          child: Container(
-                                            margin: const EdgeInsets.symmetric(
-                                                vertical: 10.0,
-                                                horizontal: 20.0),
-                                            padding: const EdgeInsets.all(10.0),
+                                    baseColor: Colors.grey[300]!,
+                                    highlightColor: Colors.grey[100]!,
+                                    child: Container(
+                                      margin: const EdgeInsets.symmetric(
+                                          vertical: 10.0,
+                                          horizontal: 20.0),
+                                      padding: const EdgeInsets.all(10.0),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius:
+                                        BorderRadius.circular(10.0),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 50.0,
+                                            height: 50.0,
                                             decoration: BoxDecoration(
-                                              color: Colors.white,
+                                              color: Colors.grey[300],
                                               borderRadius:
-                                                  BorderRadius.circular(10.0),
+                                              BorderRadius.circular(
+                                                  8.0),
                                             ),
-                                            child: Row(
+                                          ),
+                                          const SizedBox(width: 10.0),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                              CrossAxisAlignment
+                                                  .start,
                                               children: [
                                                 Container(
-                                                  width: 50.0,
-                                                  height: 50.0,
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.grey[300],
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8.0),
-                                                  ),
+                                                  width: double.infinity,
+                                                  height: 12.0,
+                                                  color: Colors.grey[300],
                                                 ),
-                                                const SizedBox(width: 10.0),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Container(
-                                                        width: double.infinity,
-                                                        height: 12.0,
-                                                        color: Colors.grey[300],
-                                                      ),
-                                                      const SizedBox(
-                                                          height: 8.0),
-                                                      Container(
-                                                        width: double.infinity,
-                                                        height: 12.0,
-                                                        color: Colors.grey[300],
-                                                      ),
-                                                    ],
-                                                  ),
+                                                const SizedBox(
+                                                    height: 8.0),
+                                                Container(
+                                                  width: double.infinity,
+                                                  height: 12.0,
+                                                  color: Colors.grey[300],
                                                 ),
                                               ],
                                             ),
                                           ),
-                                        )
+                                        ],
+                                      ),
+                                    ),
+                                  )
                                       : Column(
-                                          children: [
-                                            CachedNetworkImage(
-                                                width: MediaQuery.of(context)
-                                                    .size
-                                                    .width,
-                                                imageUrl:
-                                                    '${Config.Image_Path + 'category/' + user_category_string[i].categoryImage}',
-                                                placeholder: (context, url) =>
-                                                    Image.asset(
-                                                      "assets/images/loader.gif",
-                                                      width: 80,
-                                                      height: 80,
-                                                    ),
-                                                errorWidget:
-                                                    (context, url, error) =>
-                                                        Image.asset(
-                                                          "assets/images/loader.gif",
-                                                          width: 80,
-                                                          height: 80,
-                                                        )),
-                                            if (kDebugMode)
-                                              Text(
-                                                  "p ${user_category_string[i].privacyType}  ${user_category_string[i].categoryId}")
-                                          ],
-                                        ),
+                                    children: [
+                                      CachedNetworkImage(
+                                          fadeInDuration: Duration.zero,
+                                          fadeOutDuration: Duration.zero,
+                                          width: MediaQuery.of(context)
+                                              .size
+                                              .width,
+                                          imageUrl:
+                                          '${Config.Image_Path + 'category/' + user_category_string[i].categoryImage}',
+                                          placeholder: (context, url) =>
+                                              Image.asset(
+                                                "assets/images/loader.gif",
+                                                width: 80,
+                                                height: 80,
+                                              ),
+                                          errorWidget:
+                                              (context, url, error) =>
+                                              Image.asset(
+                                                "assets/images/loader.gif",
+                                                width: 80,
+                                                height: 80,
+                                              )),
+                                      if (kDebugMode)
+                                        Text(
+                                            "p ${user_category_string[i].privacyType}  ${user_category_string[i].categoryId}")
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -509,20 +559,25 @@ class CustomDialog extends StatefulWidget {
 class _CustomDialogState extends State<CustomDialog> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController whatsappController = TextEditingController();
+  Prefs prefs = new Prefs();
   updateUser(String name,String mobileNumber1) async{
-
+    print('in updateUser');
     var url = Config.update_Profile;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
+    Position location = await Geolocator.getCurrentPosition();
 
     http.Response response = await http.post(Uri.parse(url), body: {
       'PostById':'${deviceId}',
       "Name":name,
       "MobileNumber1":mobileNumber1,
+      "Latitude":location.latitude.toString(),
+      "Longitude":location.longitude.toString(),
+
 
 
     });
 
-//    logger.i("$url\n${response.statusCode} \n${jsonDecode(response.body)}");
+  logger.i("$url\n${response.statusCode} \n${jsonDecode(response.body)}");
 
     Map<String, dynamic> data = json.decode(response.body );
     bool status = data["success"];
@@ -530,6 +585,8 @@ class _CustomDialogState extends State<CustomDialog> {
 
 
     if (status == true) {
+      await prefs.setuser_name(name);
+
       Navigator.pop(context);
       Navigator.push(
           context, MaterialPageRoute(builder: (context) => CategoryScreen()));
@@ -546,201 +603,211 @@ class _CustomDialogState extends State<CustomDialog> {
   Widget build(BuildContext context) {
     return WillPopScope(
         onWillPop: () async => false,  // Disable back button
-    child:
+        child:
 
-      Dialog(
-      insetPadding: EdgeInsets.symmetric(horizontal: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.fromLTRB(20, 12, 20, 20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'For us to show you relevant information, we need to know you better.',
-              style: TextStyle(
-                fontSize: 15.5,
-                fontWeight: FontWeight.w500,
-                color: Colors.black,
-              ),
+        Dialog(
+          insetPadding: EdgeInsets.symmetric(horizontal: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
             ),
-            SizedBox(height: 20),
-
-            // Name label
-            Text(
-              'Your Name',
-              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-
-            // Name TextField
-            TextField(
-              controller: nameController,
-              style: TextStyle(fontSize: 15),
-              decoration: InputDecoration(
-                hintText: 'Type Your Name here',
-                hintStyle: TextStyle(color: Colors.grey.shade600),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                border: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-            ),
-            SizedBox(height: 16),
-
-            // WhatsApp label
-            Text(
-              '10 Digit Whatsapp Number',
-              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-
-            // WhatsApp TextField
-            TextField(
-              controller: whatsappController,
-              keyboardType: TextInputType.number,
-              maxLength: 10,
-              style: TextStyle(fontSize: 15),
-              decoration: InputDecoration(
-                counterText: '',
-                hintText: '10 Digit Whatsapp Number',
-                hintStyle: TextStyle(color: Colors.grey.shade600),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                border: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-            ),
-
-            // Info Text
-            SizedBox(height: 4),
-            Text(
-              'This Whatsapp number will NOT be visible to other users in the app. It is solely used for creating your profile.',
-              style: TextStyle(
-                fontSize: 11.5,
-                color: Colors.blueAccent,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 20),
-
-            // Submit Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                 // updateUser(nameController.text,whatsappController.text);
-          final name = nameController.text.trim();
-          final whatsapp = whatsappController.text.trim();
-
-        // Basic validation
-        if (name.isEmpty) {
-          Fluttertoast.showToast(
-            msg: 'Please enter your name',
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.BOTTOM,
-          );
-          return;
-    }
-
-    if (whatsapp.isEmpty || whatsapp.length != 10 || !RegExp(r'^[0-9]{10}$').hasMatch(whatsapp)) {
-      Fluttertoast.showToast(
-        msg: 'Please enter a valid 10-digit WhatsApp number',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-      );
-      return;
-
-    }
-
-    updateUser(name, whatsapp);
-
-  },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'For us to show you relevant information, we need to know you better.',
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black,
                   ),
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  elevation: 1,
                 ),
-                child: Text(
-                  'Submit',
-                  style: TextStyle(fontSize: 15, color: Colors.white),
+                SizedBox(height: 20),
+
+                // Name label
+                Text(
+                  'Your Name',
+                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
                 ),
-              ),
+                SizedBox(height: 8),
+
+                // Name TextField
+                TextField(
+                  controller: nameController,
+                  style: TextStyle(fontSize: 15),
+                  decoration: InputDecoration(
+                    hintText: 'Type Your Name here',
+                    hintStyle: TextStyle(color: Colors.grey.shade600),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
+
+                // WhatsApp label
+                Text(
+                  '10 Digit Whatsapp Number',
+                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+
+                // WhatsApp TextField
+                TextField(
+                  controller: whatsappController,
+                  keyboardType: TextInputType.number,
+                  maxLength: 10,
+                  style: TextStyle(fontSize: 15),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: '10 Digit Whatsapp Number',
+                    hintStyle: TextStyle(color: Colors.grey.shade600),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ),
+
+                // Info Text
+                SizedBox(height: 4),
+                Text(
+                  'This Whatsapp number will NOT be visible to other users in the app. It is solely used for creating your profile.',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.blueAccent,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 20),
+
+                // Submit Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // updateUser(nameController.text,whatsappController.text);
+                      final name = nameController.text.trim();
+                      final whatsapp = whatsappController.text.trim();
+
+                      // Basic validation
+                      if (name.isEmpty) {
+                        Fluttertoast.showToast(
+                          msg: 'Please enter your name',
+                          toastLength: Toast.LENGTH_SHORT,
+                          gravity: ToastGravity.BOTTOM,
+                        );
+                        return;
+                      }
+
+                      if (whatsapp.isEmpty || whatsapp.length != 10 || !RegExp(r'^[0-9]{10}$').hasMatch(whatsapp)) {
+                        Fluttertoast.showToast(
+                          msg: 'Please enter a valid 10-digit WhatsApp number',
+                          toastLength: Toast.LENGTH_SHORT,
+                          gravity: ToastGravity.BOTTOM,
+                        );
+                        return;
+
+                      }
+
+                      updateUser(name, whatsapp);
+
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      elevation: 1,
+                    ),
+                    child: Text(
+                      'Submit',
+                      style: TextStyle(fontSize: 15, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    )
+          ),
+        )
     );
   }
 
 }
 
 Widget showRejectedDialog(BuildContext context, String custCareNumber) {
-  return  WillPopScope(
-      onWillPop: () async => false,  // Disable back button
-  child: Dialog(
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(30),
-    ),
-    child: Container(
-      width: 370,
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
+  final screenWidth = MediaQuery.of(context).size.width;
+  final textScale = MediaQuery.of(context).textScaleFactor;
+
+  return WillPopScope(
+    onWillPop: () async => false, // Disable back button
+    child: Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(height: 20),
-          Text(
-            'Your Profile is\nRejected by Admin!',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.red,
-              fontSize: 35,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 40),
-          Text(
-            'Please contact Local App\nAdmin at -',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 22.5, color: Colors.black87),
-          ),
-          SizedBox(height: 12),
-          GestureDetector(
-            onTap: () async {
-              final number = 'tel:$custCareNumber';
-              if (await canLaunchUrl(Uri.parse(number))) {
-                await launchUrl(Uri.parse(number));
-              }
-            },
-            child: Text(
-              custCareNumber,
-              style: TextStyle(
-                color: Colors.blue,
-                fontSize: 20,
-                decoration: TextDecoration.underline,
+      child: Container(
+        width: screenWidth * 0.85, // 85% of screen width
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 20),
+              Text(
+                'Your Profile is\nRejected by Admin!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 22 * textScale, // scales with screen size
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
+              const SizedBox(height: 30),
+              Text(
+                'Please contact Local App\nAdmin at -',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16 * textScale,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () async {
+                  final number = 'tel:$custCareNumber';
+                  if (await canLaunchUrl(Uri.parse(number))) {
+                    await launchUrl(Uri.parse(number));
+                  }
+                },
+                child: Text(
+                  custCareNumber,
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 18 * textScale,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
           ),
-        ],
+        ),
       ),
     ),
-  ));
+  );
 }

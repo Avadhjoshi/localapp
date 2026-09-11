@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:localapp/BlogDetail.dart';
 import 'package:localapp/constants/postPrivetType.dart';
 import 'package:localapp/constants/style%20configuration.dart';
@@ -38,7 +38,7 @@ class BlogListWidget extends StatefulWidget {
 
 class _BlogListWidgetState extends State<BlogListWidget> {
   bool showShimmer = true; // Track whether to show shimmer or data
-  final Duration shimmerDuration = const Duration(seconds: 2);
+  final Duration shimmerDuration = const Duration(seconds: 1);
   late YoutubePlayerController _controller = YoutubePlayerController(
     initialVideoId: '',
     flags:
@@ -217,15 +217,9 @@ class _BlogListWidgetState extends State<BlogListWidget> {
                       : Container(
                     margin: EdgeInsets.only(top: 10),
                     color: kDebugMode? Colors.red.withOpacity(.3):null,
-                        child: Html(
-                            data: widget.blog.heading,
-                            style: {
-                              "body": Style(
-                                padding: EdgeInsets.zero,
-                                margin: const EdgeInsets.all(0),
-                              ),
-                            },
-                          ),
+                        child: HtmlWidget(
+                          widget.blog.heading ?? '',
+                        )
                       ),
 
                   if (widget.blog.postByName != "")

@@ -1,5 +1,7 @@
 
 import 'dart:async';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter/material.dart';
 import 'directoryDetail.dart';
@@ -9,8 +11,6 @@ import 'constants/Config.dart';
 import 'models/directoryList.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_html/flutter_html.dart';
-import 'package:share_plus/share_plus.dart';
 
 class DirectoryListWidget extends StatefulWidget {
   @override
@@ -262,16 +262,14 @@ class _DirectoryListWidgetState extends State<DirectoryListWidget> {
                             Container(
                                 width: 260, // Set the width as needed
                                 child:
-                                Html(
-                                  data:'${widget.directory.ShortDesc}',
-                                  onLinkTap: (url, _, __, ___) async {
-                                    if (await canLaunch(url!)) {
-                                      await launch(
-                                        url,
-                                      );
+                                HtmlWidget(
+                                  '${widget.directory.ShortDesc}',
+                                  onTapUrl: (url) async {
+                                    if (await canLaunch(url)) {
+                                      await launch(url); // ✅ String version
                                     }
+                                    return true;
                                   },
-
                                 )
                             ),
 
@@ -330,14 +328,21 @@ class _DirectoryListWidgetState extends State<DirectoryListWidget> {
                   ),
 
                   GestureDetector(
-                    onTap: (){
+                    onTap: () async {
+                      String msg =
+                          "This contact is shared from Local App.\n"
+                          "*Name:* ${widget.directory.FullName}\n"
+                          "*Contact Number:* ${widget.directory.CallingNumber}\n"
+                          "${widget.directory.CategoryName} - ${widget.directory.SubCategoryName}";
 
-                      String msg="This contact is shared from Local App.\n*Name:* ${widget.directory.FullName}\n*Contact Number:* ${widget.directory.CallingNumber}\n ${widget.directory.CategoryName} - ${widget.directory.SubCategoryName}";
-                      Share.share('${msg}',
-                          subject: 'Local App');
+                      await Share.share(
+                        msg,
+                        subject: 'Share Contact',
 
+                      );
 
-                    },child:
+                    }
+                    ,child:
 
                   Row(
                     children: [

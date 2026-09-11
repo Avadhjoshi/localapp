@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:flutter_html/flutter_html.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'CategoryScreen.dart';
@@ -23,7 +22,9 @@ import 'package:shimmer/shimmer.dart';
 
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
-import 'package:platform_device_id/platform_device_id.dart';
+
+import 'constants/DeviceHelper.dart';
+import 'dart:io';
 
 
 class VideoPlayer extends StatefulWidget {
@@ -191,7 +192,7 @@ class _VideoPlayerState extends State<VideoPlayer> {
     //showLoaderDialog(context);
     var url = Config.get_blog_data;
     print('post_id${widget.BlogPostId}');
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
     http.Response response = await http.post(Uri.parse(url), body: {
       'post_id':'${widget.BlogPostId}',

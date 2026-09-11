@@ -14,7 +14,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import 'package:platform_device_id/platform_device_id.dart';
+
+import 'constants/DeviceHelper.dart';
+import 'dart:io';
 
 
 import 'BlogDetail.dart';
@@ -24,7 +26,6 @@ import 'PostScreen.dart';
 import 'constants/Config.dart';
 import 'models/City.dart';
 import 'models/LocalAd.dart';
-import 'package:flutter_html/flutter_html.dart';
 
 import 'models/directoryList.dart';
 
@@ -117,7 +118,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
     sub_categorylist_data = [];
     sub_categorylist_string = [];
     selected_category=int.parse(widget.CategoryId);
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
     var url = Config.get_contact_home;
    // blog_page=1;
@@ -169,7 +170,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
     }
 
     getCity();
-    Future.delayed(Duration(seconds: 2), () {
+    Future.delayed(Duration(milliseconds: 1), () {
       Navigator.of(context).pop();
 
     });
@@ -199,7 +200,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
 
 
     if (status == "0") {
-      Future.delayed(Duration(seconds: 2), () {
+      Future.delayed(Duration(milliseconds: 1), () {
         Navigator.of(context).pop();
 
       });
@@ -235,7 +236,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
       });
     }
     else{
-      Future.delayed(Duration(seconds: 2), () {
+      Future.delayed(Duration(milliseconds: 1), () {
         Navigator.of(context).pop();
 
       });
@@ -734,7 +735,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
   ad_response(ad_id) async {
 
     var url = Config.insert_ad_response;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
       print('deviceId${deviceId}');
       print('ad_id${ad_id}');
     http.Response response = await http.post(Uri.parse(url)

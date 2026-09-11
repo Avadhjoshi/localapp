@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:localapp/constants/month.dart';
 import 'package:localapp/constants/style%20configuration.dart';
 import 'package:shimmer/shimmer.dart';
@@ -155,17 +155,12 @@ class _MyBlogListWidgetState extends State<MyBlogListWidget> {
                     ],
                   )
                 ] else ...[
-                  Html(
-                    data: widget.blog.heading.toString() != 'null' &&
+                  HtmlWidget(
+                   widget.blog.heading.toString() != 'null' &&
                             widget.blog.heading.toString().isNotEmpty
                         ? widget.blog.heading.toString()
                         : widget.blog.text.toString(),
-                    style: {
-                      "body": Style(
-                        padding: EdgeInsets.zero,
-                        margin: EdgeInsets.all(0),
-                      ),
-                    },
+
                   ),
                 ],
 

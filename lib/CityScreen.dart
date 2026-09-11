@@ -17,7 +17,9 @@ import 'MoreScreen.dart';
 import 'PostScreen.dart';
 import 'constants/Config.dart';
 import 'constants/prefs_file.dart';
-import 'package:platform_device_id/platform_device_id.dart';
+
+import 'constants/DeviceHelper.dart';
+import 'dart:io';
 
 
 class CityScreen extends StatefulWidget {
@@ -35,7 +37,7 @@ class _CityScreenState extends State<CityScreen> {
   int area_string_length=1;
   Timer searchOnStoppedTyping = Timer(Duration(milliseconds: 1), () {});
   bool showShimmer = true; // Track whether to show shimmer or data
-  final Duration shimmerDuration = Duration(seconds: 2);
+  final Duration shimmerDuration = Duration(milliseconds: 1);
 
   int selectedIdx = -1;
   String status='';
@@ -55,7 +57,7 @@ class _CityScreenState extends State<CityScreen> {
 
   @override
   void initState() {
-    Future.delayed(Duration(milliseconds: 8), () {
+    Future.delayed(Duration(milliseconds: 1), () {
       getArea();
     });
     Timer(shimmerDuration, () {
@@ -121,7 +123,7 @@ class _CityScreenState extends State<CityScreen> {
      showLoaderDialog(context);
 
     var url = Config.get_city_area;
-     String? deviceId = await PlatformDeviceId.getDeviceId;
+     String deviceId = await DeviceHelper.getDeviceId();
 
      http.Response response = await http.post(Uri.parse(url), body: {
       'city_id':'1',
@@ -137,7 +139,7 @@ class _CityScreenState extends State<CityScreen> {
 
 
     if (status == "0") {
-      Future.delayed(Duration(seconds: 2), () {
+      Future.delayed(Duration(milliseconds: 1), () {
         Navigator.of(context).pop();
 
       });
@@ -157,7 +159,7 @@ class _CityScreenState extends State<CityScreen> {
       print('area_string_length${area_string_length}');
     }
     else{
-      Future.delayed(Duration(seconds: 2), () {
+      Future.delayed(Duration(milliseconds: 1), () {
         Navigator.of(context).pop();
 
       });
@@ -169,7 +171,7 @@ class _CityScreenState extends State<CityScreen> {
   search_selected(String keyword) async{
     showLoaderDialog(context);
     var url = Config.get_search_city_area;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
 
     http.Response response = await http.post(Uri.parse(url), body: {
@@ -611,7 +613,7 @@ class _CityScreenState extends State<CityScreen> {
     );
   }
   Future _refreshData() async {
-    Future.delayed(Duration(milliseconds: 8), () {
+    Future.delayed(Duration(milliseconds: 1), () {
       getArea();
     });
 

@@ -13,7 +13,9 @@ import 'CityScreen.dart';
 import 'HomeScreen.dart';
 import 'JobScreen.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:platform_device_id/platform_device_id.dart';
+
+import 'constants/DeviceHelper.dart';
+import 'dart:io';
 
 import 'constants/Config.dart';
 
@@ -143,7 +145,7 @@ class _PostScreenState extends State<PostScreen> {
     showLoaderDialog(context);
 
     var url = Config.get_user_post_category;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
     http.Response response = await http.post(Uri.parse(url), body: {
       'user_id':'${deviceId}',

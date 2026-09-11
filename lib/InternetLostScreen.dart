@@ -1,33 +1,48 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:connectivity/connectivity.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
-class InternetLostScreen extends StatelessWidget {
+class InternetLostScreen extends StatefulWidget {
+  const InternetLostScreen({Key? key}) : super(key: key);
+
+  @override
+  State<InternetLostScreen> createState() => _InternetLostScreenState();
+}
+
+class _InternetLostScreenState extends State<InternetLostScreen> {
+  late StreamSubscription _subscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscription =
+        Connectivity().onConnectivityChanged.listen((result) {
+          if (result != ConnectivityResult.none) {
+            Navigator.of(context).pop(); // go back automatically
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar:AppBar(
-        backgroundColor: Colors.white, // Change app bar color to white
-        elevation: 0.0, // Remove the bottom border
-
-        iconTheme: IconThemeData(color: Colors.black), //
-        // Change icon color to black
-        // textTheme: TextTheme(
-        //   headline6: TextStyle(color: Colors.black), // Change text color to black
-        // ),
-
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
         centerTitle: true,
-// Back arrow
-        actions: [
-          // Add any additional actions here
-        ],
       ),
-
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset('assets/images/LostInternet.gif'), // Add your image here
-          ],
+        child: Image.asset(
+          'assets/images/lostinternet.gif',
+          fit: BoxFit.contain,
         ),
       ),
     );

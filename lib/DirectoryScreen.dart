@@ -1,13 +1,14 @@
 import 'dart:convert';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:localapp/DirectoryDetail.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
-import 'package:platform_device_id/platform_device_id.dart';
+import 'constants/DeviceHelper.dart';
+import 'dart:io';
 
 import 'BuySellScreen.dart';
 import 'CategoryScreen.dart';
@@ -499,18 +500,15 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
                                                       Container(
                                                           width: 250, // Set the width as needed
                                                           child:
-                                                          Html(
-                                                            data:'${directory_string[j].ShortDesc}',
-                                                            onLinkTap: (url, _, __, ___) async {
-                                                              if (await canLaunch(url!)) {
-                                                                await launch(
-                                                                  url,
-                                                                );
+                                                          HtmlWidget(
+                                                            directory_string[j].ShortDesc ?? '',
+                                                            onTapUrl: (url) async {
+                                                              if (await canLaunch(url)) {
+                                                                await launch(url); // ✅ String version
                                                               }
+                                                              return true;
                                                             },
-
-                                                          )
-                                                      ),
+                                                          )                            ),
 
                                                     ],
                                                   ),
@@ -642,7 +640,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
 
     print('selected_category${selected_category}');
     print('selected_sub_category${selected_sub_category}');
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
     http.Response response = await http.post(Uri.parse(url), body: {
       'category_id':'${selected_category}',

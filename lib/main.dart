@@ -13,11 +13,13 @@ import 'package:localapp/constants/prefs_file.dart';
 import 'package:localapp/noticication%20function.dart';
 import 'package:localapp/providers/profieleDataProvider.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:platform_device_id/platform_device_id.dart';
+
+import 'constants/DeviceHelper.dart';import 'dart:io';
 
 import 'BlogDetail.dart';
 import 'CityDetailScreen.dart';
 import 'HomeScreen.dart';
+import 'InternetConnectivity.dart';
 import 'MyPostScreen.dart';
 import 'constants/Config.dart';
 import 'constants/postPrivetType.dart';
@@ -94,35 +96,21 @@ Future<void> main() async {
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark));
-  runApp(UncontrolledProviderScope(
+  runApp(
+    UncontrolledProviderScope(
       container: ProviderContainer(),
       child: main_app(
         initialAction: initialAction,
-      )));
+      ),
+    ),
+  );
+
 }
 
 @pragma('vm:entry-point')
 Future<void> showbackgroundNotification(RemoteMessage message) async {
   logger.f("onMessage: ${message.data}");
 
-  // if (message.data.isNotEmpty) {
-  //   final blogId = message.data['blog_id'];
-  //   if (blogId != null && blogId.isNotEmpty) {
-  //     if (navigatorKey.currentContext != null) {
-  //       Navigator.push(
-  //         navigatorKey.currentContext!,
-  //         MaterialPageRoute(
-  //           builder: (context) => BlogDetailScreen(
-  //             blogId,
-  //             'Notification',
-  //             '', // Pass other parameters as needed
-  //             false,
-  //           ),
-  //         ),
-  //       );
-  //     }
-  //   }
-  // }
   String? imageUrl = message.data['image_url'];
 
   String? bigPicturePath;
@@ -211,7 +199,7 @@ class _main_appState extends ConsumerState<main_app> {
         navigatorKey.currentContext!,
         MaterialPageRoute(
           builder: (context) =>
-              HomeScreen("", "", blogId, CategoryPrivacyType.public),
+              HomeScreen("", "", blogId, CategoryPrivacyType.public,"","",""),
         ),
       );
     } else if (typeId == 'My Post') {
@@ -242,7 +230,7 @@ class _main_appState extends ConsumerState<main_app> {
 
     String user_id = await prefs.ismember_id();
     print('token_home${token}');
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
     print('deviceId${deviceId}');
 
@@ -263,14 +251,17 @@ class _main_appState extends ConsumerState<main_app> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'Local App',
-        navigatorKey: navigatorKey, // Set the navigator key
-        theme: ThemeData(
-            primarySwatch: Colors.blue,
-            inputDecorationTheme: InputDecorationTheme(
-                helperStyle: TextStyle(color: Colors.black))),
-        home: SplashScreen(
-          initialAction: widget.initialAction,
-        ));
+      title: 'Local App',
+      navigatorKey: navigatorKey,
+      builder: (context, child) {
+        return InternetGuard(child: child!);
+      },
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: SplashScreen(
+        initialAction: widget.initialAction,
+      ),
+    );
   }
 }

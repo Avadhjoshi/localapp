@@ -4,8 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:localapp/component/show%20coustomMesage.dart';
 import 'package:logger/logger.dart';
 import 'package:riverpod/riverpod.dart';
-import 'package:sim_data_plus/sim_data.dart';
-import 'package:mobile_number/mobile_number.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 
@@ -64,7 +62,7 @@ PhoneNumberNotifier(super.state);
 
 
 
-  Future<void> getSimNumber(BuildContext context) async
+  /*Future<void> getSimNumber(BuildContext context) async
   {
 
     var d = await MobileNumber.hasPhonePermission;
@@ -92,7 +90,7 @@ PhoneNumberNotifier(super.state);
 
     }
   }
-
+*/
 Future <void> requestPermission()async
 {
   Logger().e("Requisting Permission");

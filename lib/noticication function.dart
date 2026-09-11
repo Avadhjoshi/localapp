@@ -153,7 +153,7 @@ Future<void> tapHandler(ReceivedAction receivedAction) async {
             MaterialPageRoute(
                 builder: (c) =>
                     HomeScreen(
-                        "", "", data['blog_id']!, CategoryPrivacyType.public)));
+                        "", "", data['blog_id']!, CategoryPrivacyType.public,"","","")));
       }
     }
     else {

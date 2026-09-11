@@ -1,31 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:carousel_slider/carousel_slider.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_html/flutter_html.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'CategoryScreen.dart';
-import 'HomeScreen.dart';
-import 'constants/Config.dart';
-import 'package:http/http.dart' as http;
-import 'package:localapp/models/BlogList.dart';
-import 'package:localapp/models/Category.dart';
-import 'package:localapp/models/SubCategory.dart';
-import 'dart:convert';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import 'package:photo_view/photo_view.dart';
-
-import 'image_viewer.dart';
-import 'models/BlogDetailList.dart';
-import 'models/LocalAd.dart';
-import 'package:shimmer/shimmer.dart';
-
-import 'package:photo_view/photo_view.dart';
-import 'package:photo_view/photo_view_gallery.dart';
-import 'package:platform_device_id/platform_device_id.dart';
-
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 class VideoPlayerScreen extends StatefulWidget {

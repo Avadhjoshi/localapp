@@ -5,7 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:localapp/MyPostScreen.dart';
@@ -13,13 +13,16 @@ import 'package:localapp/constants/style%20configuration.dart';
 import 'package:localapp/models/Category.dart';
 import 'package:localapp/models/SubCategory.dart';
 import 'package:logger/logger.dart';
-import 'package:platform_device_id/platform_device_id.dart';
-import 'package:shimmer/shimmer.dart';
+
+import 'constants/DeviceHelper.dart';import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import 'VideoPlayerScreen.dart';
 import 'constants/Config.dart';
+import 'constants/DeviceHelper.dart';
+import 'features/home/widgets/group_preview_tile.dart';
+import 'features/home/widgets/group_tile_blog.dart';
 import 'image_viewer.dart';
 import 'models/BlogDetailList.dart';
 import 'models/LocalAd.dart';
@@ -38,7 +41,7 @@ class BlogDetailScreen extends StatefulWidget {
 
 class _BlogDetailScreenState extends State<BlogDetailScreen> {
   bool showShimmer = true; // Track whether to show shimmer or data
-  final Duration shimmerDuration = const Duration(seconds: 2);
+  final Duration shimmerDuration = const Duration(milliseconds: 600);
 
   int selectedIdx = 0;
   String status = '';
@@ -84,6 +87,9 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
   String EndDate = '';
   String TotalClicks = '';
   String AreaName = '';
+  bool _isLoading = false;
+  Blog_Detail_list? blog;
+
   late YoutubePlayerController _controller = YoutubePlayerController(
     initialVideoId: '${videoId}',
     flags: const YoutubePlayerFlags(
@@ -99,6 +105,9 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
   double _volume = 100;
   bool _muted = false;
   bool _isPlayerReady = false;
+  List<String> dummyNames = [];
+  List<String> dummyInitials = [];
+  int dummyTotalMembers = 0;
 
   @override
   void initState() {
@@ -188,120 +197,126 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
     );
   }
 
-  GetBlogData() async {
-    showLoaderDialog(context);
-    var url = Config.get_blog_data;
-    print('selected_category${widget.PostCategory}');
-    print('selected_sub_category${widget.PostSubCategory}');
-    print('post_id${widget.BlogPostId}');
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+  Future<void> GetBlogData() async {
+    if (!mounted) return;
 
-    http.Response response = await http.post(Uri.parse(url), body: {
-      'category_id': '${widget.PostCategory}',
-      'subcategory_id': '${widget.PostSubCategory}',
-      'post_id': '${widget.BlogPostId}',
-      'user_id': '${deviceId}'
-    });
+    setState(() => _isLoading = true);
 
-    Map<String, dynamic> data = json.decode(response.body);
-    logger.i("$url\n ${response.statusCode} \n${data})");
-    status = data["success"];
-    print('status${status}');
+    try {
+      final url = Config.get_blog_data;
+      final deviceId = await DeviceHelper.getDeviceId();
 
-    if (status == "0") {
-      Future.delayed(const Duration(seconds: 2), () {
-        Navigator.of(context).pop();
-      });
+      final response = await http.post(
+        Uri.parse(url),
+        body: {
+          'category_id': widget.PostCategory,
+          'subcategory_id': widget.PostSubCategory,
+          'post_id': widget.BlogPostId,
+          'user_id': deviceId ?? '',
+        },
+      );
 
-      categorylist_data = data['data']['category'] as List;
-      categorylist_string = categorylist_data
-          .map<Category_list>((json) => Category_list.fromJson(json))
+      logger.i("$url\n${response.statusCode}\n${response.body}");
+
+      if (response.statusCode != 200) {
+        throw Exception("Server Error");
+      }
+
+      final Map<String, dynamic> data = json.decode(response.body);
+      status = data["success"];
+
+      if (status != "0") {
+        throw Exception("API returned error");
+      }
+
+      /// ---------- PARSE DATA (NO UI BLOCKING) ----------
+      categorylist_string = (data['data']['category'] as List)
+          .map((e) => Category_list.fromJson(e))
           .toList();
 
-      sub_categorylist_data = data['data']['sub_category'] as List;
-      sub_categorylist_string = sub_categorylist_data
-          .map<SubCategory_list>((json) => SubCategory_list.fromJson(json))
+      sub_categorylist_string = (data['data']['sub_category'] as List)
+          .map((e) => SubCategory_list.fromJson(e))
           .toList();
 
-      local_ad_data = data['data']['local_ad'] == null
-          ? []
-          : data['data']['local_ad'] as List;
-      local_ad_string = local_ad_data
-          .map<LocalAd_list>((json) => LocalAd_list.fromJson(json))
+      local_ad_string = (data['data']['local_ad'] ?? [])
+          .map<LocalAd_list>((e) => LocalAd_list.fromJson(e))
           .toList();
 
-      blog_data = data['data']['blog'] as List;
-      Logger().i("blog_data\n$blog_data");
-      blog_string = blog_data
-          .map<Blog_Detail_list>((json) => Blog_Detail_list.fromJson(json))
+      final blogList = (data['data']['blog'] as List)
+          .map((e) => Blog_Detail_list.fromJson(e))
           .toList();
 
-      Logger().t(' show blog Data\n${data['data']['blog'][0]}');
+      if (blogList.isEmpty) {
+        throw Exception("No blog data");
+      }
 
-      setState(() {
-        CategoryName = blog_string[0].CategoryName == null
-            ? ''
-            : blog_string[0].CategoryName;
-        Heading = blog_string[0].Heading == null ? '' : blog_string[0].Heading;
-        HText = blog_string[0].Text == null ? '' : blog_string[0].Text;
-        PostDisplayPhoto = blog_string[0].PostDisplayPhoto == null
-            ? ''
-            : blog_string[0].PostDisplayPhoto;
-        SubCategoryName = blog_string[0].SubCategoryName == null
-            ? ''
-            : blog_string[0].SubCategoryName;
-        PostImage1 =
-            blog_string[0].PostImage1 == null ? '' : blog_string[0].PostImage1;
-        PostImage2 =
-            blog_string[0].PostImage2 == null ? '' : blog_string[0].PostImage2;
-        PostImage3 =
-            blog_string[0].PostImage3 == null ? '' : blog_string[0].PostImage3;
-        PostImage4 =
-            blog_string[0].PostImage4 == null ? '' : blog_string[0].PostImage4;
-        PostImage5 =
-            blog_string[0].PostImage5 == null ? '' : blog_string[0].PostImage5;
-        VideoLink =
-            blog_string[0].VideoLink == null ? '' : blog_string[0].VideoLink;
-        ShareText =
-            blog_string[0].ShareText == null ? '' : blog_string[0].ShareText;
-        PostByName =
-            blog_string[0].PostByName == null ? '' : blog_string[0].PostByName;
-        ShareLink =
-            blog_string[0].ShareLink == null ? '' : blog_string[0].ShareLink;
-        TimeAgo = blog_string[0].TimeAgo;
-        Status = blog_string[0].Status == null ? '' : blog_string[0].Status;
-        RejectionComment = blog_string[0].RejectionComment == null
-            ? ''
-            : blog_string[0].RejectionComment;
-        WhatsappNumber = blog_string[0].WhatsappNumber == null
-            ? ''
-            : blog_string[0].WhatsappNumber;
-        WhatsappText = blog_string[0].WhatsappText == null
-            ? ''
-            : blog_string[0].WhatsappText;
-        EndDate = blog_string[0].EndDate == null ? '' : blog_string[0].EndDate;
-        TotalClicks = blog_string[0].TotalClicks == null
-            ? ''
-            : blog_string[0].TotalClicks;
-        TotalClicks = blog_string[0].TotalClicks == null
-            ? ''
-            : blog_string[0].TotalClicks;
-        AreaName = blog_string[0].Area == "null" ? '' : blog_string[0].Area;
+      /// ---------- SINGLE BLOG OBJECT ----------
+      blog = blogList.first;
+// ---------- DUMMY USERS ----------
+      final dummy = data['data']['dummy_users'];
 
-        if (VideoLink != '') {
-          videoId = YoutubePlayer.convertUrlToId("${VideoLink}")!;
+      if (dummy != null) {
+        dummyNames = List<String>.from(dummy['names'] ?? []);
+        dummyInitials = List<String>.from(dummy['initials'] ?? []);
+        dummyTotalMembers = dummy['total_members'] ?? 0;
+      }
+
+      /// ---------- YOUTUBE INIT (ONLY IF NEEDED) ----------
+      if (blog!.VideoLink != null && blog!.VideoLink!.isNotEmpty) {
+        final id = YoutubePlayer.convertUrlToId(blog!.VideoLink!);
+        if (id != null) {
+          videoId = id;
           _controller = YoutubePlayerController(
-            initialVideoId: '${videoId}',
-            flags: const YoutubePlayerFlags(
-              autoPlay: false,
-            ),
+            initialVideoId: videoId,
+            flags: const YoutubePlayerFlags(autoPlay: false),
           );
         }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        CategoryName = blog!.CategoryName ?? '';
+        Heading = blog!.Heading ?? '';
+        HText = blog!.Text ?? '';
+        PostDisplayPhoto = blog!.PostDisplayPhoto ?? '';
+        SubCategoryName = blog!.SubCategoryName ?? '';
+
+        PostImage1 = blog!.PostImage1 ?? '';
+        PostImage2 = blog!.PostImage2 ?? '';
+        PostImage3 = blog!.PostImage3 ?? '';
+        PostImage4 = blog!.PostImage4 ?? '';
+        PostImage5 = blog!.PostImage5 ?? '';
+
+        ShareText = blog!.ShareText ?? '';
+        PostByName = blog!.PostByName ?? '';
+        ShareLink = blog!.ShareLink ?? '';
+        TimeAgo = blog!.TimeAgo ?? '';
+        Status = blog!.Status ?? '';
+        RejectionComment = blog!.RejectionComment ?? '';
+        WhatsappNumber = blog!.WhatsappNumber ?? '';
+        WhatsappText = blog!.WhatsappText ?? '';
+        EndDate = blog!.EndDate ?? '';
+        TotalClicks = blog!.TotalClicks ?? '';
+        AreaName = blog!.Area == "null" ? '' : blog!.Area ?? '';
+
+        showShimmer = false;
+        _isLoading = false;
       });
-    } else {
-      Future.delayed(const Duration(seconds: 2), () {
-        Navigator.of(context).pop();
-      });
+    } catch (e, stack) {
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          showShimmer = false;
+        });
+
+        Fluttertoast.showToast(
+          msg: "Failed to load post",
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
     }
   }
 
@@ -309,7 +324,7 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
     return showDialog<void>(
       context: context,
       barrierDismissible:
-          false, // Prevent user from dismissing dialog by tapping outside
+      false, // Prevent user from dismissing dialog by tapping outside
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Delete Post?'),
@@ -343,24 +358,24 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
 
   ad_response(ad_id) async {
     var url = Config.insert_ad_response;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
     print('deviceId${deviceId}');
     print('ad_id${ad_id}');
     http.Response response = await http.post(Uri.parse(url),
         body: {"user_id": '${deviceId}', "ad_id": '${ad_id}'});
 
-    logger.i("${url} \n${response.statusCode} \n${jsonDecode(response.body)}");
+    logger.i("${url} \n${response.statusCode} \n${''}");
   }
 
   delete_post() async {
     showLoaderDialog(context);
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
     var url = Config.delete_post;
     http.Response response = await http.post(Uri.parse(url),
         body: {'BlogPostId': '${widget.BlogPostId}', 'user_id': '${deviceId}'});
 
-    logger.i("${url} \n${response.statusCode} \n${jsonDecode(response.body)}");
+    logger.i("${url} \n${response.statusCode} \n${''}");
 
     Map<String, dynamic> data = json.decode(response.body);
     status = data["success"];
@@ -497,22 +512,22 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                                 },
                                 child: showShimmer
                                     ? Shimmer.fromColors(
-                                        baseColor: Colors.grey[300]!,
-                                        highlightColor: Colors.grey[100]!,
-                                        child: Container(
-                                          width: double.infinity,
-                                          height: 380,
-                                          color: Colors.white,
-                                        ),
-                                      )
+                                  baseColor: Colors.grey[300]!,
+                                  highlightColor: Colors.grey[100]!,
+                                  child: Container(
+                                    width: double.infinity,
+                                    height: 380,
+                                    color: Colors.white,
+                                  ),
+                                )
                                     : Container(
-                                        color: Colors.white,
-                                        alignment: Alignment.center,
-                                        child: CachedNetworkImage(
-                                          imageUrl: Config.Image_Path +
-                                              'blog/${PostDisplayPhoto}',
-                                        ),
-                                      ),
+                                  color: Colors.white,
+                                  alignment: Alignment.center,
+                                  child: CachedNetworkImage(fadeInDuration: Duration.zero, fadeOutDuration: Duration.zero,
+                                    imageUrl: Config.Image_Path +
+                                        'blog/${PostDisplayPhoto}',
+                                  ),
+                                ),
                               )
                             ],
                             const SizedBox(height: 10.0),
@@ -522,311 +537,311 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                                   if (VideoLink != '') ...[
                                     showShimmer
                                         ? Shimmer.fromColors(
-                                            baseColor: Colors.grey[300]!,
-                                            highlightColor: Colors.grey[100]!,
-                                            child: Container(
-                                              width: double.infinity,
-                                              height: 380,
-                                              color: Colors.white,
-                                            ),
-                                          )
+                                      baseColor: Colors.grey[300]!,
+                                      highlightColor: Colors.grey[100]!,
+                                      child: Container(
+                                        width: double.infinity,
+                                        height: 380,
+                                        color: Colors.white,
+                                      ),
+                                    )
                                         : GestureDetector(
-                                            onTap: () {
-                                              Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          ImageViewer(
-                                                              PostDisplayPhoto,
-                                                              PostImage1,
-                                                              PostImage2,
-                                                              PostImage3,
-                                                              PostImage4,
-                                                              PostImage5,
-                                                              0,
-                                                              'blog')));
-                                            },
-                                            child: CachedNetworkImage(
-                                                width: MediaQuery.of(context)
-                                                        .size
-                                                        .width /
-                                                    6.5,
+                                      onTap: () {
+                                        Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    ImageViewer(
+                                                        PostDisplayPhoto,
+                                                        PostImage1,
+                                                        PostImage2,
+                                                        PostImage3,
+                                                        PostImage4,
+                                                        PostImage5,
+                                                        0,
+                                                        'blog')));
+                                      },
+                                      child: CachedNetworkImage(fadeInDuration: Duration.zero, fadeOutDuration: Duration.zero,
+                                          width: MediaQuery.of(context)
+                                              .size
+                                              .width /
+                                              6.5,
+                                          height: 80,
+                                          imageUrl: Config.Image_Path +
+                                              'blog/${PostDisplayPhoto}',
+                                          placeholder: (context, url) =>
+                                              Image.asset(
+                                                "assets/images/loader.gif",
+                                                width: 80,
                                                 height: 80,
-                                                imageUrl: Config.Image_Path +
-                                                    'blog/${PostDisplayPhoto}',
-                                                placeholder: (context, url) =>
-                                                    Image.asset(
-                                                      "assets/images/loader.gif",
-                                                      width: 80,
-                                                      height: 80,
-                                                    ),
-                                                errorWidget:
-                                                    (context, url, error) =>
-                                                        Image.asset(
-                                                          "assets/images/loader.gif",
-                                                          width: 80,
-                                                          height: 80,
-                                                        )),
-                                          ),
+                                              ),
+                                          errorWidget:
+                                              (context, url, error) =>
+                                              Image.asset(
+                                                "assets/images/loader.gif",
+                                                width: 80,
+                                                height: 80,
+                                              )),
+                                    ),
                                   ],
                                   if (PostImage1 != '') ...[
                                     const SizedBox(width: 10),
                                     showShimmer
                                         ? Shimmer.fromColors(
-                                            baseColor: Colors.grey[300]!,
-                                            highlightColor: Colors.grey[100]!,
-                                            child: Container(
-                                              width: 300,
-                                              height: 80,
-                                              color: Colors.white,
-                                            ),
-                                          )
+                                      baseColor: Colors.grey[300]!,
+                                      highlightColor: Colors.grey[100]!,
+                                      child: Container(
+                                        width: 300,
+                                        height: 80,
+                                        color: Colors.white,
+                                      ),
+                                    )
                                         : GestureDetector(
-                                            onTap: () {
-                                              Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          ImageViewer(
-                                                              PostDisplayPhoto,
-                                                              PostImage1,
-                                                              PostImage2,
-                                                              PostImage3,
-                                                              PostImage4,
-                                                              PostImage5,
-                                                              1,
-                                                              'blog')));
-                                            },
-                                            child: CachedNetworkImage(
-                                                width: MediaQuery.of(context)
-                                                        .size
-                                                        .width /
-                                                    6.5,
+                                      onTap: () {
+                                        Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    ImageViewer(
+                                                        PostDisplayPhoto,
+                                                        PostImage1,
+                                                        PostImage2,
+                                                        PostImage3,
+                                                        PostImage4,
+                                                        PostImage5,
+                                                        1,
+                                                        'blog')));
+                                      },
+                                      child: CachedNetworkImage(fadeInDuration: Duration.zero, fadeOutDuration: Duration.zero,
+                                          width: MediaQuery.of(context)
+                                              .size
+                                              .width /
+                                              6.5,
+                                          height: 80,
+                                          imageUrl: Config.Image_Path +
+                                              'blog/${PostImage1}',
+                                          placeholder: (context, url) =>
+                                              Image.asset(
+                                                "assets/images/loader.gif",
+                                                width: 80,
                                                 height: 80,
-                                                imageUrl: Config.Image_Path +
-                                                    'blog/${PostImage1}',
-                                                placeholder: (context, url) =>
-                                                    Image.asset(
-                                                      "assets/images/loader.gif",
-                                                      width: 80,
-                                                      height: 80,
-                                                    ),
-                                                errorWidget:
-                                                    (context, url, error) =>
-                                                        Image.asset(
-                                                          "assets/images/loader.gif",
-                                                          width: 80,
-                                                          height: 80,
-                                                        )),
-                                          ),
+                                              ),
+                                          errorWidget:
+                                              (context, url, error) =>
+                                              Image.asset(
+                                                "assets/images/loader.gif",
+                                                width: 80,
+                                                height: 80,
+                                              )),
+                                    ),
                                   ],
                                   if (PostImage2 != '') ...[
                                     const SizedBox(width: 10),
                                     showShimmer
                                         ? Shimmer.fromColors(
-                                            baseColor: Colors.grey[300]!,
-                                            highlightColor: Colors.grey[100]!,
-                                            child: Container(
-                                              // width: double.infinity,
-                                              width: 300,
-                                              height: 80,
-                                              color: Colors.white,
-                                            ),
-                                          )
+                                      baseColor: Colors.grey[300]!,
+                                      highlightColor: Colors.grey[100]!,
+                                      child: Container(
+                                        // width: double.infinity,
+                                        width: 300,
+                                        height: 80,
+                                        color: Colors.white,
+                                      ),
+                                    )
                                         : GestureDetector(
-                                            onTap: () {
-                                              Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          ImageViewer(
-                                                              PostDisplayPhoto,
-                                                              PostImage1,
-                                                              PostImage2,
-                                                              PostImage3,
-                                                              PostImage4,
-                                                              PostImage5,
-                                                              2,
-                                                              'blog')));
-                                            },
-                                            child: CachedNetworkImage(
-                                              width: MediaQuery.of(context)
-                                                      .size
-                                                      .width /
-                                                  6.5,
+                                      onTap: () {
+                                        Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    ImageViewer(
+                                                        PostDisplayPhoto,
+                                                        PostImage1,
+                                                        PostImage2,
+                                                        PostImage3,
+                                                        PostImage4,
+                                                        PostImage5,
+                                                        2,
+                                                        'blog')));
+                                      },
+                                      child: CachedNetworkImage(fadeInDuration: Duration.zero, fadeOutDuration: Duration.zero,
+                                        width: MediaQuery.of(context)
+                                            .size
+                                            .width /
+                                            6.5,
+                                        height: 80,
+                                        imageUrl: Config.Image_Path +
+                                            'blog/${PostImage2}',
+                                        placeholder: (context, url) =>
+                                            Image.asset(
+                                              "assets/images/loader.gif",
+                                              width: 80,
                                               height: 80,
-                                              imageUrl: Config.Image_Path +
-                                                  'blog/${PostImage2}',
-                                              placeholder: (context, url) =>
-                                                  Image.asset(
-                                                "assets/images/loader.gif",
-                                                width: 80,
-                                                height: 80,
-                                              ),
-                                              errorWidget:
-                                                  (context, url, error) =>
-                                                      Image.asset(
-                                                "assets/images/loader.gif",
-                                                width: 80,
-                                                height: 80,
-                                              ),
                                             ),
-                                          )
+                                        errorWidget:
+                                            (context, url, error) =>
+                                            Image.asset(
+                                              "assets/images/loader.gif",
+                                              width: 80,
+                                              height: 80,
+                                            ),
+                                      ),
+                                    )
                                   ],
                                   if (PostImage3 != '') ...[
                                     const SizedBox(width: 10),
                                     showShimmer
                                         ? Shimmer.fromColors(
-                                            baseColor: Colors.grey[300]!,
-                                            highlightColor: Colors.grey[100]!,
-                                            child: Container(
-                                              width: double.infinity,
-                                              height: 80,
-                                              color: Colors.white,
-                                            ),
-                                          )
+                                      baseColor: Colors.grey[300]!,
+                                      highlightColor: Colors.grey[100]!,
+                                      child: Container(
+                                        width: double.infinity,
+                                        height: 80,
+                                        color: Colors.white,
+                                      ),
+                                    )
                                         : GestureDetector(
-                                            onTap: () {
-                                              Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          ImageViewer(
-                                                              PostDisplayPhoto,
-                                                              PostImage1,
-                                                              PostImage2,
-                                                              PostImage3,
-                                                              PostImage4,
-                                                              PostImage5,
-                                                              3,
-                                                              'blog')));
-                                            },
-                                            child: CachedNetworkImage(
-                                              width: MediaQuery.of(context)
-                                                      .size
-                                                      .width /
-                                                  6.5,
+                                      onTap: () {
+                                        Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    ImageViewer(
+                                                        PostDisplayPhoto,
+                                                        PostImage1,
+                                                        PostImage2,
+                                                        PostImage3,
+                                                        PostImage4,
+                                                        PostImage5,
+                                                        3,
+                                                        'blog')));
+                                      },
+                                      child: CachedNetworkImage(fadeInDuration: Duration.zero, fadeOutDuration: Duration.zero,
+                                        width: MediaQuery.of(context)
+                                            .size
+                                            .width /
+                                            6.5,
+                                        height: 80,
+                                        imageUrl: Config.Image_Path +
+                                            'blog/${PostImage3}',
+                                        placeholder: (context, url) =>
+                                            Image.asset(
+                                              "assets/images/loader.gif",
+                                              width: 80,
                                               height: 80,
-                                              imageUrl: Config.Image_Path +
-                                                  'blog/${PostImage3}',
-                                              placeholder: (context, url) =>
-                                                  Image.asset(
-                                                "assets/images/loader.gif",
-                                                width: 80,
-                                                height: 80,
-                                              ),
-                                              errorWidget:
-                                                  (context, url, error) =>
-                                                      Image.asset(
-                                                "assets/images/loader.gif",
-                                                width: 80,
-                                                height: 80,
-                                              ),
                                             ),
-                                          )
+                                        errorWidget:
+                                            (context, url, error) =>
+                                            Image.asset(
+                                              "assets/images/loader.gif",
+                                              width: 80,
+                                              height: 80,
+                                            ),
+                                      ),
+                                    )
                                   ],
                                   if (PostImage4 != '') ...[
                                     const SizedBox(width: 10),
                                     showShimmer
                                         ? Shimmer.fromColors(
-                                            baseColor: Colors.grey[300]!,
-                                            highlightColor: Colors.grey[100]!,
-                                            child: Container(
-                                              width: double.infinity,
-                                              height: 80,
-                                              color: Colors.white,
-                                            ),
-                                          )
+                                      baseColor: Colors.grey[300]!,
+                                      highlightColor: Colors.grey[100]!,
+                                      child: Container(
+                                        width: double.infinity,
+                                        height: 80,
+                                        color: Colors.white,
+                                      ),
+                                    )
                                         : GestureDetector(
-                                            onTap: () {
-                                              Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          ImageViewer(
-                                                              PostDisplayPhoto,
-                                                              PostImage1,
-                                                              PostImage2,
-                                                              PostImage3,
-                                                              PostImage4,
-                                                              PostImage5,
-                                                              4,
-                                                              'blog')));
-                                            },
-                                            child: CachedNetworkImage(
-                                              width: MediaQuery.of(context)
-                                                      .size
-                                                      .width /
-                                                  6.5,
+                                      onTap: () {
+                                        Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    ImageViewer(
+                                                        PostDisplayPhoto,
+                                                        PostImage1,
+                                                        PostImage2,
+                                                        PostImage3,
+                                                        PostImage4,
+                                                        PostImage5,
+                                                        4,
+                                                        'blog')));
+                                      },
+                                      child: CachedNetworkImage(fadeInDuration: Duration.zero, fadeOutDuration: Duration.zero,
+                                        width: MediaQuery.of(context)
+                                            .size
+                                            .width /
+                                            6.5,
+                                        height: 80,
+                                        imageUrl: Config.Image_Path +
+                                            'blog/${PostImage4}',
+                                        placeholder: (context, url) =>
+                                            Image.asset(
+                                              "assets/images/loader.gif",
+                                              width: 80,
                                               height: 80,
-                                              imageUrl: Config.Image_Path +
-                                                  'blog/${PostImage4}',
-                                              placeholder: (context, url) =>
-                                                  Image.asset(
-                                                "assets/images/loader.gif",
-                                                width: 80,
-                                                height: 80,
-                                              ),
-                                              errorWidget:
-                                                  (context, url, error) =>
-                                                      Image.asset(
-                                                "assets/images/loader.gif",
-                                                width: 80,
-                                                height: 80,
-                                              ),
                                             ),
-                                          )
+                                        errorWidget:
+                                            (context, url, error) =>
+                                            Image.asset(
+                                              "assets/images/loader.gif",
+                                              width: 80,
+                                              height: 80,
+                                            ),
+                                      ),
+                                    )
                                   ],
                                   if (PostImage5 != '') ...[
                                     const SizedBox(width: 10),
                                     showShimmer
                                         ? Shimmer.fromColors(
-                                            baseColor: Colors.grey[300]!,
-                                            highlightColor: Colors.grey[100]!,
-                                            child: Container(
-                                              width: double.infinity,
-                                              height: 80,
-                                              color: Colors.white,
-                                            ),
-                                          )
+                                      baseColor: Colors.grey[300]!,
+                                      highlightColor: Colors.grey[100]!,
+                                      child: Container(
+                                        width: double.infinity,
+                                        height: 80,
+                                        color: Colors.white,
+                                      ),
+                                    )
                                         : GestureDetector(
-                                            onTap: () {
-                                              Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          ImageViewer(
-                                                              PostDisplayPhoto,
-                                                              PostImage1,
-                                                              PostImage2,
-                                                              PostImage3,
-                                                              PostImage4,
-                                                              PostImage5,
-                                                              5,
-                                                              'blog')));
-                                            },
-                                            child: CachedNetworkImage(
-                                                width: MediaQuery.of(context)
-                                                        .size
-                                                        .width /
-                                                    6.5,
+                                      onTap: () {
+                                        Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    ImageViewer(
+                                                        PostDisplayPhoto,
+                                                        PostImage1,
+                                                        PostImage2,
+                                                        PostImage3,
+                                                        PostImage4,
+                                                        PostImage5,
+                                                        5,
+                                                        'blog')));
+                                      },
+                                      child: CachedNetworkImage(fadeInDuration: Duration.zero, fadeOutDuration: Duration.zero,
+                                          width: MediaQuery.of(context)
+                                              .size
+                                              .width /
+                                              6.5,
+                                          height: 80,
+                                          imageUrl: Config.Image_Path +
+                                              'blog/${PostImage5}',
+                                          placeholder: (context, url) =>
+                                              Image.asset(
+                                                "assets/images/loader.gif",
+                                                width: 80,
                                                 height: 80,
-                                                imageUrl: Config.Image_Path +
-                                                    'blog/${PostImage5}',
-                                                placeholder: (context, url) =>
-                                                    Image.asset(
-                                                      "assets/images/loader.gif",
-                                                      width: 80,
-                                                      height: 80,
-                                                    ),
-                                                errorWidget:
-                                                    (context, url, error) =>
-                                                        Image.asset(
-                                                          "assets/images/loader.gif",
-                                                          width: 80,
-                                                          height: 80,
-                                                        )),
-                                          )
+                                              ),
+                                          errorWidget:
+                                              (context, url, error) =>
+                                              Image.asset(
+                                                "assets/images/loader.gif",
+                                                width: 80,
+                                                height: 80,
+                                              )),
+                                    )
                                   ],
                                 ],
                               ),
@@ -836,50 +851,50 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                             //Post By Name
                             showShimmer
                                 ? Shimmer.fromColors(
-                                    baseColor: Colors.grey[300]!,
-                                    highlightColor: Colors.grey[100]!,
-                                    child: Container(
-                                      width: double.infinity,
-                                      height: 50,
-                                      color: Colors.white,
-                                    ),
-                                  )
+                              baseColor: Colors.grey[300]!,
+                              highlightColor: Colors.grey[100]!,
+                              child: Container(
+                                width: double.infinity,
+                                height: 50,
+                                color: Colors.white,
+                              ),
+                            )
                                 : (PostByName.toString()!="null"&&PostByName.toString()!="")?Container(
                               color: kDebugMode? Colors.red:null,
-                                    padding: const EdgeInsets.only(left: 0),
-                                    margin: const EdgeInsets.only(top: 10),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        Container(
-                                          width: 24,
-                                          height: 22,
-                                          margin:
-                                              const EdgeInsets.only(left: 0),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              PostByName[0],
-                                              style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.white),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          PostByName,
-                                          style:
-                                              StyleConfiguration.areaTextStyle,
-                                        ),
-                                        // Add spacing between the icon and text
-                                      ],
+                              padding: const EdgeInsets.only(left: 0),
+                              margin: const EdgeInsets.only(top: 10),
+                              child: Row(
+                                crossAxisAlignment:
+                                CrossAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 24,
+                                    height: 22,
+                                    margin:
+                                    const EdgeInsets.only(left: 0),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey,
+                                      shape: BoxShape.circle,
                                     ),
-                                  ):SizedBox(),
+                                    child: Center(
+                                      child: Text(
+                                        PostByName[0],
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    PostByName,
+                                    style:
+                                    StyleConfiguration.areaTextStyle,
+                                  ),
+                                  // Add spacing between the icon and text
+                                ],
+                              ),
+                            ):SizedBox(),
 
 
                             if (AreaName != "null" && AreaName.length > 0)
@@ -946,50 +961,49 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                             // const SizedBox(height: 10.0),
                             showShimmer
                                 ? Shimmer.fromColors(
-                                    baseColor: Colors.grey[300]!,
-                                    highlightColor: Colors.grey[100]!,
-                                    child: Container(
-                                        height: 300,
-                                        child: ListView.builder(
-                                          itemCount: 5, // Number of lines
-                                          itemBuilder: (context, index) {
-                                            return Shimmer.fromColors(
-                                              baseColor: Colors.grey[300]!,
-                                              highlightColor: Colors.grey[100]!,
-                                              child: Container(
-                                                margin:
-                                                    const EdgeInsets.symmetric(
-                                                        vertical: 10.0,
-                                                        horizontal: 20.0),
-                                                width: double.infinity,
-                                                height: 20.0,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          5.0),
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        )),
-                                  )
+                              baseColor: Colors.grey[300]!,
+                              highlightColor: Colors.grey[100]!,
+                              child: Container(
+                                  height: 300,
+                                  child: ListView.builder(
+                                    itemCount: 5, // Number of lines
+                                    itemBuilder: (context, index) {
+                                      return Shimmer.fromColors(
+                                        baseColor: Colors.grey[300]!,
+                                        highlightColor: Colors.grey[100]!,
+                                        child: Container(
+                                          margin:
+                                          const EdgeInsets.symmetric(
+                                              vertical: 10.0,
+                                              horizontal: 20.0),
+                                          width: double.infinity,
+                                          height: 20.0,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius:
+                                            BorderRadius.circular(
+                                                5.0),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  )),
+                            )
                                 : Container(
-                                    color: kDebugMode? Colors.red.withOpacity(.3):null,
+                              color: kDebugMode? Colors.red.withOpacity(.3):null,
                               margin: EdgeInsets.only(top: 0),
-                                    padding: const EdgeInsets.only(left: 0),
-                                    child: Html(
-                                      data: '${HText}',
-                                      onLinkTap: (url, _, __, ___) async {
-                                        if (await canLaunch(url!)) {
-                                          await launch(
-                                            url,
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  ),
-                            
+                              padding: const EdgeInsets.only(left: 0),
+                              child:  HtmlWidget(
+                               HText ?? '',
+                                onTapUrl: (url) async {
+                                  if (await canLaunch(url)) {
+                                    await launch(url); // ✅ String version
+                                  }
+                                  return true;
+                                },
+                              )
+                            ),
+
 
 
                             if (ShareText != '') ...[
@@ -1010,7 +1024,7 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                                           vertical: 10.0, horizontal: 16.0),
                                       shape: RoundedRectangleBorder(
                                         borderRadius:
-                                            BorderRadius.circular(30.0),
+                                        BorderRadius.circular(30.0),
                                       ),
                                       backgroundColor: Colors
                                           .black, // Set the background color to black
@@ -1115,7 +1129,7 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                                       launchUrl(url);
                                     }
                                   },
-                                  child: CachedNetworkImage(
+                                  child: CachedNetworkImage(fadeInDuration: Duration.zero, fadeOutDuration: Duration.zero,
                                       imageUrl: Config.Image_Path +
                                           'local_ad/${local_ad_string[0].AdImage}',
                                       fit: BoxFit.cover,
@@ -1243,7 +1257,22 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
                                 ),
                               ))
                         ]
-                      ]
+                      ],
+                      if (dummyNames.isNotEmpty && Status=='Approved') ...[
+                        Container(
+                          height: 70,
+                          child:
+    GroupPreviewTileBlog(
+    initials: dummyInitials,
+    titleText: dummyNames.join(', '), // "test, best"
+    membersOnline: "${dummyTotalMembers}",
+    )
+
+                        ),
+
+                        const SizedBox(height: 8),
+                      ],
+
                     ],
                   ),
                 ))));

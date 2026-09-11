@@ -8,12 +8,16 @@ import 'MyPostScreen.dart';
 import 'VideoPlayerScreen.dart';
 import 'constants/Config.dart';
 import 'constants/prefs_file.dart';
-import 'package:platform_device_id/platform_device_id.dart';
+
+import 'constants/DeviceHelper.dart';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
-import 'package:platform_device_id/platform_device_id.dart';
+
+import 'constants/DeviceHelper.dart';
+import 'dart:io';
 
 class MoreScreen extends StatefulWidget {
   
@@ -43,7 +47,7 @@ class _MoreScreenState extends State<MoreScreen> {
     super.initState();
   }
   get_name() async{
-   String? device_Id = await PlatformDeviceId.getDeviceId;
+   String? device_Id = await DeviceHelper.getDeviceId();
 
    setState(() {
       DeviceId=device_Id;

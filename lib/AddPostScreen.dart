@@ -3,25 +3,17 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:flutter_html/flutter_html.dart';
-import 'package:localapp/ImagePickerPage.dart';
-import 'package:localapp/VideoPlayer.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'AddPost1Screen.dart';
 import 'AddPost2Screen.dart';
 import 'CategoryScreen.dart';
-import 'HomeScreen.dart';
-import 'MultiImagePicker.dart';
 import 'constants/Config.dart';
 import 'package:http/http.dart' as http;
-import 'package:localapp/models/BlogList.dart';
 import 'package:localapp/models/Category.dart';
 import 'package:localapp/models/SubCategory.dart';
 import 'dart:convert';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:photo_view/photo_view.dart';
-import 'package:html_editor_enhanced/html_editor.dart';
 
 import 'constants/prefs_file.dart';
 import 'image_viewer.dart';
@@ -77,7 +69,6 @@ class _AddPostScreenState extends State<AddPostScreen> {
   String WhatsappText='';
   String ShareLink='';
   String videoId='';
-  HtmlEditorController html_controller = HtmlEditorController();
 
   TextEditingController desc_con = new TextEditingController();
   Prefs prefs = new Prefs();

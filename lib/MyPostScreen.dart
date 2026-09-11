@@ -12,8 +12,9 @@ import 'package:logger/logger.dart';
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:platform_device_id/platform_device_id.dart';
-import 'package:connectivity/connectivity.dart';
+
+import 'constants/DeviceHelper.dart';
+import 'dart:io';
 
 import 'AddPostScreen.dart';
 import 'MoreScreen.dart';
@@ -77,19 +78,13 @@ class _MyPostScreenState extends State<MyPostScreen> {
   bool isVisibleDiv=false;
   @override
   void initState() {
-    if(widget.isVisible==true){
-      setState(() {
-        isVisibleDiv=true;
-      });
-      check_uploading();
-      }
-
-    Future.delayed(Duration(milliseconds: 1), () {
-      _initConnectivity();
-      getApi(context);
-    });
-    _scrollController = ScrollController()..addListener(_scrollListener);
     super.initState();
+    if(widget.isVisible==true){
+      isVisibleDiv=true;
+      check_uploading();
+    }
+    _scrollController = ScrollController()..addListener(_scrollListener);
+    getApi(context);   // direct call
   }
 
   check_uploading() async {
@@ -108,23 +103,6 @@ class _MyPostScreenState extends State<MyPostScreen> {
     }
   }
 
-  Future<void> _initConnectivity() async {
-    ConnectivityResult result = await Connectivity().checkConnectivity();
-    _updateConnectionStatus(result);
-    Connectivity().onConnectivityChanged.listen((ConnectivityResult result) {
-      _updateConnectionStatus(result);
-    });
-  }
-
-  void _updateConnectionStatus(ConnectivityResult result) {
-    if (result == ConnectivityResult.none) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => InternetLostScreen(),
-        ),
-      );
-    }
-  }
 
 
   void _scrollListener() {
@@ -146,28 +124,6 @@ class _MyPostScreenState extends State<MyPostScreen> {
   }
 
 
-  Future<void> checkInternetConnectivity() async {
-    ConnectivityResult connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult == ConnectivityResult.none) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => InternetLostScreen(),
-        ),
-      );
-    }
-    // Listen for changes in connectivity status
-    Connectivity().onConnectivityChanged.listen((ConnectivityResult result) {
-      if (result == ConnectivityResult.none) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => InternetLostScreen(),
-          ),
-        );
-      }
-    });
-  }
 
   Future<void> getApi(BuildContext context) async {
     showLoaderDialog(context);
@@ -183,7 +139,7 @@ class _MyPostScreenState extends State<MyPostScreen> {
 
     var url = Config.get_my_post;
     blog_page=0;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
 
     http.Response response = await http.post(Uri.parse(url), body: {
@@ -207,7 +163,7 @@ class _MyPostScreenState extends State<MyPostScreen> {
 
     // Check if the request was successful (status code 200)
     if (response.statusCode == 200) {
-      Future.delayed(Duration(seconds: 3), () {
+      Future.delayed(Duration(milliseconds: 1), () {
         Navigator.of(context).pop();
 
       });
@@ -243,7 +199,7 @@ class _MyPostScreenState extends State<MyPostScreen> {
 
     }
     else {
-      Future.delayed(Duration(seconds: 3), () {
+      Future.delayed(Duration(milliseconds: 1), () {
         Navigator.of(context).pop();
 
       });
@@ -297,7 +253,7 @@ class _MyPostScreenState extends State<MyPostScreen> {
     showLoaderDialog(context);
 
     var url = Config.get_my_post;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
     http.Response response = await http.post(Uri.parse(url), body: {
       'blog_page':'${blog_page}',
@@ -313,7 +269,7 @@ class _MyPostScreenState extends State<MyPostScreen> {
 
 
     if (status == "0") {
-      Future.delayed(Duration(seconds: 2), () {
+      Future.delayed(Duration(milliseconds: 1), () {
         Navigator.of(context).pop();
 
       });
@@ -343,7 +299,7 @@ class _MyPostScreenState extends State<MyPostScreen> {
       }
     }
     else{
-      Future.delayed(Duration(seconds: 2), () {
+      Future.delayed(Duration(milliseconds: 1), () {
         Navigator.of(context).pop();
 
       });
@@ -434,7 +390,11 @@ class _MyPostScreenState extends State<MyPostScreen> {
 
       body:  WillPopScope(
           onWillPop: () async {
-            Navigator.push(context, MaterialPageRoute(builder: (context) =>  CategoryScreen()));
+           
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => CategoryScreen()),
+                  (route) => false,
+            );
             return false;
           },
           child:

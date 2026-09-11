@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'package:share_plus/share_plus.dart';
 
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:flutter_html/flutter_html.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'CategoryScreen.dart';
@@ -16,15 +16,15 @@ import 'package:localapp/models/SubCategory.dart';
 import 'dart:convert';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:photo_view/photo_view.dart';
-import 'package:platform_device_id/platform_device_id.dart';
+
+import 'constants/DeviceHelper.dart';
+import 'dart:io';
 
 import 'image_viewer.dart';
 import 'models/DirectoryList.dart';
 import 'models/LocalAd.dart';
 import 'package:shimmer/shimmer.dart';
 
-import 'package:photo_view/photo_view.dart';
-import 'package:photo_view/photo_view_gallery.dart';
 
 
 class DirectoryDetailScreen extends StatefulWidget {
@@ -39,7 +39,7 @@ class DirectoryDetailScreen extends StatefulWidget {
 
 class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
   bool showShimmer = true; // Track whether to show shimmer or data
-  final Duration shimmerDuration = Duration(seconds: 2);
+  final Duration shimmerDuration = Duration(milliseconds: 2);
 
   int selectedIdx = 0;
   String status='';
@@ -200,7 +200,7 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
     print('selected_category${widget.PostCategory}');
     print('selected_sub_category${widget.PostSubCategory}');
     print('post_id${widget.ContactId}');
-    String? deviceId = await PlatformDeviceId.getDeviceId;
+    String deviceId = await DeviceHelper.getDeviceId();
 
     http.Response response = await http.post(Uri.parse(url), body: {
       'category_id':'${widget.PostCategory}',
@@ -217,7 +217,7 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
 
 
     if (status == "0") {
-      Future.delayed(Duration(seconds: 2), () {
+      Future.delayed(Duration(milliseconds: 2), () {
         Navigator.of(context).pop();
 
       });
@@ -274,7 +274,7 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
       });
     }
     else{
-      Future.delayed(Duration(seconds: 2), () {
+      Future.delayed(Duration(milliseconds: 2), () {
         Navigator.of(context).pop();
 
       });
@@ -755,17 +755,17 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
                                     :
                                 Container(
                                   padding: const EdgeInsets.only(left:10),
-                                  child:  Html(
-                                    data:'${Description}',
-                                    onLinkTap: (url, _, __, ___) async {
-                                      if (await canLaunch(url!)) {
-                                        await launch(
-                                          url,
-                                        );
+                                  child:    HtmlWidget(
+                                    '${Description}',
+                                    onTapUrl: (url) async {
+                                      if (await canLaunch(url)) {
+                                        await launch(url); // ✅ String version
                                       }
+                                      return true;
                                     },
+                                  )
 
-                                  ),
+
                                 ),
                               ]else...[
                                   SizedBox(height: 10.0),
@@ -801,17 +801,15 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
                                       :
                                   Container(
                                     padding: const EdgeInsets.only(left:10),
-                                    child:  Html(
-                                      data:'${ShortDesc}',
-                                      onLinkTap: (url, _, __, ___) async {
-                                        if (await canLaunch(url!)) {
-                                          await launch(
-                                            url,
-                                          );
+                                    child:    HtmlWidget(
+                                      '${ShortDesc}',
+                                      onTapUrl: (url) async {
+                                        if (await canLaunch(url)) {
+                                          await launch(url); // ✅ String version
                                         }
+                                        return true;
                                       },
-
-                                    ),
+                                    )
                                   ),
 
                               ],
@@ -948,11 +946,17 @@ class _DirectoryDetailScreenState extends State<DirectoryDetailScreen> {
                   ),
 
                   GestureDetector(
-                    onTap: (){
+                    onTap: () async {
+                      String msg =
+                          "This contact is shared from Local App.\n"
+                          "*Name:* $FullName\n"
+                          "*Contact Number:* $CallingNumber\n"
+                          "$CategoryName - $SubCategoryName";
 
-                      String msg="This contact is shared from Local App.\n*Name:* ${FullName}\n*Contact Number:* ${CallingNumber}\n ${CategoryName} - ${SubCategoryName}";
-                      Share.share('${msg}',
-                          subject: 'Local App');
+                      await Share.share(
+                        msg,
+                        subject: 'Share Contact',
+                      );
                     },child:
 
                   Row(
